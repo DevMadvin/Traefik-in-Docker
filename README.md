@@ -1,4 +1,4 @@
-# Traefik
+# Traefik in Docker
 
 Production-ready [Traefik](https://traefik.io) v3 on Docker Compose. Point a Cloudflare domain at your server, edit `.env`, and put any other Compose stack on the same network.
 
