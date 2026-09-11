@@ -1,0 +1,101 @@
+name: traefik
+
+services:
+  traefik:
+    image: traefik:v3.7.13
+    container_name: traefik
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    networks:
+      - web
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN:?Set CF_DNS_API_TOKEN in .env}
+
+      TRAEFIK_LOG_LEVEL: ${TRAEFIK_LOG_LEVEL:-ERROR}
+      TRAEFIK_LOG_FORMAT: ${TRAEFIK_LOG_FORMAT:-json}
+      TRAEFIK_ACCESSLOG: ${TRAEFIK_ACCESSLOG:-false}
+      TRAEFIK_ACCESSLOG_FORMAT: ${TRAEFIK_ACCESSLOG_FORMAT:-json}
+
+      TRAEFIK_ENTRYPOINTS_WEB_ADDRESS: ":80"
+      TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS: ":443"
+      TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO: websecure
+      TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_SCHEME: https
+
+      TRAEFIK_PING: "true"
+
+      TRAEFIK_PROVIDERS_DOCKER: "true"
+      TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT: "false"
+      TRAEFIK_PROVIDERS_DOCKER_NETWORK: ${DOCKER_NETWORK_NAME:-web}
+      TRAEFIK_PROVIDERS_DOCKER_WATCH: "true"
+
+      TRAEFIK_PROVIDERS_FILE_DIRECTORY: /etc/traefik/dynamic
+      TRAEFIK_PROVIDERS_FILE_WATCH: "true"
+
+      TRAEFIK_API_DASHBOARD: "true"
+      TRAEFIK_API_INSECURE: "false"
+
+      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env}
+      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_STORAGE: /letsencrypt/acme.json
+      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_DNSCHALLENGE_PROVIDER: cloudflare
+      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_DNSCHALLENGE_RESOLVERS: 1.1.1.1:53,1.0.0.1:53
+      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_CASERVER: "${ACME_CA_SERVER:-https://acme-v02.api.letsencrypt.org/directory}"
+
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/letsencrypt:/letsencrypt
+      - ./traefik/auth:/auth:ro
+      - ./config:/etc/traefik/dynamic:ro
+
+    labels:
+      - "traefik.enable=true"
+
+      - "traefik.http.routers.traefik-dashboard.rule=Host(`traefik.${PRIMARY_DOMAIN:?Set PRIMARY_DOMAIN in .env}`)"
+      - "traefik.http.routers.traefik-dashboard.entrypoints=websecure"
+      - "traefik.http.routers.traefik-dashboard.tls=true"
+      - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik-dashboard.tls.domains[0].main=${PRIMARY_DOMAIN}"
+      - "traefik.http.routers.traefik-dashboard.tls.domains[0].sans=*.${PRIMARY_DOMAIN}"
+      - "traefik.http.routers.traefik-dashboard.service=api@internal"
+      - "traefik.http.routers.traefik-dashboard.middlewares=dashboard-ipallowlist,dashboard-ratelimit,dashboard-auth,security-headers"
+
+      - "traefik.http.middlewares.dashboard-auth.basicauth.usersfile=/auth/users"
+      - "traefik.http.middlewares.dashboard-ratelimit.ratelimit.average=5"
+      - "traefik.http.middlewares.dashboard-ratelimit.ratelimit.burst=10"
+      - "traefik.http.middlewares.dashboard-ipallowlist.ipallowlist.sourcerange=${DASHBOARD_ALLOWED_IPS:?Set DASHBOARD_ALLOWED_IPS in .env}"
+
+      - "traefik.http.middlewares.security-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.security-headers.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.security-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.security-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.security-headers.headers.referrerPolicy=strict-origin-when-cross-origin"
+      - "traefik.http.middlewares.security-headers.headers.customFrameOptionsValue=SAMEORIGIN"
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  web:
+    name: ${DOCKER_NETWORK_NAME:-web}

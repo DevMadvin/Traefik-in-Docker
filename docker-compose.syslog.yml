@@ -1,0 +1,9 @@
+# Optional logging override.
+#   docker compose -f docker-compose.yml -f docker-compose.syslog.yml up -d
+services:
+  traefik:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "${LOG_SERVER_ADDRESS:-udp://127.0.0.1:514}"
+        tag: "traefik"

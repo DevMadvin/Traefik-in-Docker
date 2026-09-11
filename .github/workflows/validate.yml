@@ -1,0 +1,20 @@
+name: validate
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render Compose file from example env
+        run: |
+          cp .env.example .env
+          ./init.sh --prepare-only
+          test -s traefik/auth/users
+          docker compose config --quiet
+          docker compose -f docker-compose.yml -f docker-compose.syslog.yml config --quiet
+          docker compose --env-file .env -f config_examples/whoami.docker-compose.yml config --quiet

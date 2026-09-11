@@ -1,0 +1,24 @@
+# Copy to ../config/ and edit. Traefik reloads this directory automatically.
+#
+#   cp config_examples/external-service.yml config/my-service.yml
+#
+# Use this for hosts that are not in Docker (a VM, a NAS, another machine).
+
+http:
+  routers:
+    myservice:
+      rule: Host(`service.example.com`)
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - security-headers@docker
+      service: myservice
+
+  services:
+    myservice:
+      loadBalancer:
+        servers:
+          - url: http://192.0.2.10:8080
+        passHostHeader: true
