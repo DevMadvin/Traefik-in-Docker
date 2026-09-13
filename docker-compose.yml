@@ -75,6 +75,10 @@ services:
       - "traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt"
       - "traefik.http.routers.traefik-dashboard.tls.domains[0].main=${PRIMARY_DOMAIN}"
       - "traefik.http.routers.traefik-dashboard.tls.domains[0].sans=*.${PRIMARY_DOMAIN}"
+      # - "traefik.http.routers.traefik-dashboard.tls.domains[1].main=${EXTRA_DOMAIN_1}"
+      # - "traefik.http.routers.traefik-dashboard.tls.domains[1].sans=*.${EXTRA_DOMAIN_1}"
+      # - "traefik.http.routers.traefik-dashboard.tls.domains[2].main=${EXTRA_DOMAIN_2}"
+      # - "traefik.http.routers.traefik-dashboard.tls.domains[2].sans=*.${EXTRA_DOMAIN_2}"
       - "traefik.http.routers.traefik-dashboard.service=api@internal"
       - "traefik.http.routers.traefik-dashboard.middlewares=dashboard-ipallowlist,dashboard-ratelimit,dashboard-auth,security-headers"
 
